@@ -316,8 +316,11 @@ def homepage():
     """
 
     if g.user:
+        users_show = [user.id for user in g.user.following]
+        users_show.append(g.user.id)
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(users_show))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
