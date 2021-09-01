@@ -5,7 +5,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import UserAddForm, LoginForm, MessageForm, UserEditForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -254,8 +254,51 @@ def delete_user():
     return redirect("/signup")
 
 
+@app.route('/users/add_like/<int:message_id>', methods=["POST"])
+def add_like(message_id):
+    """Add a 'like' to a particular messagfe."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_messages = [message.id for message in g.user.likes]
+    if message_id in liked_messages:
+        message = Likes.query.filter_by(message_id=message_id).first()
+        db.session.delete(message)
+        db.session.commit()
+
+        flash("Removed message from liked list.", "danger")
+        return redirect("/")
+
+    user_messages = [message.id for message in g.user.messages]
+    if message_id in user_messages:
+        flash("You can't like your own message!", "danger")
+        return redirect("/")
+
+    new_like = Likes(user_id=g.user.id, message_id=message_id)
+    db.session.add(new_like)
+    db.session.commit()
+    return redirect("/")
+
+
+@app.route('/users/likes')
+def show_likes():
+    """Show liked messages."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    liked_messages = g.user.likes
+    user = g.user
+    liked_messages_ids = [message.id for message in g.user.likes]
+
+    return render_template('users/likes.html', messages=liked_messages, user=user, liked_messages_ids=liked_messages_ids)
+
 ##############################################################################
 # Messages routes:
+
 
 @app.route('/messages/new', methods=["GET", "POST"])
 def messages_add():
@@ -318,6 +361,7 @@ def homepage():
     if g.user:
         users_show = [user.id for user in g.user.following]
         users_show.append(g.user.id)
+
         messages = (Message
                     .query
                     .filter(Message.user_id.in_(users_show))
@@ -325,7 +369,8 @@ def homepage():
                     .limit(100)
                     .all())
 
-        return render_template('home.html', messages=messages)
+        liked_messages_ids = [message.id for message in g.user.likes]
+        return render_template('home.html', messages=messages, liked_messages_ids=liked_messages_ids)
 
     else:
         return render_template('home-anon.html')
