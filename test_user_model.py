@@ -120,8 +120,6 @@ class UserModelTestCase(TestCase):
             User.signup(username='test6', email='test6@email.com',
                         password='testpw')
 
-        # need further help
-
     def test_user_authenticate(self):
         """Does User.authenticate successfully return a user when given a valid username and password?"""
 
